@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "src/local_market_backend"
+]
+resolver = "2"
