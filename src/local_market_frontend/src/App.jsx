@@ -1,25 +1,31 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LoginPage from './components/LoginPage'; // Ensure this file exists
-import ShopOwnerSignUp from './components/ShopOwnerSignUp'; // Ensure this file exists
-import ShopOwnerDashboard from './components/ShopOwnerDashboard'; // Ensure this file exists
-import LandingPage from './components/LandingPage'; // Ensure this file exists
-import AddProductPage from './components/AddProductPage'; // Add this import for the Add Product page
-import VerificationRequestPage from './components/VerificationRequestPage'; // Add this import for the Verification Request page
-
-const App = () => {
-  return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/dashboard" element={<ShopOwnerDashboard />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<ShopOwnerSignUp />} />
-        <Route path="/add-product" element={<AddProductPage />} /> {/* Add this route */}
-        <Route path="/request-verification" element={<VerificationRequestPage />} /> {/* Add this route */}
-      </Routes>
-    </Router>
-  );
-};
+import { useState } from 'react';
+ import { local_market_backend } from 'declarations/local_market_backend';
+ 
+ function App() {
+   const [greeting, setGreeting] = useState('');
+ 
+   function handleSubmit(event) {
+     event.preventDefault();
+     const name = event.target.elements.name.value;
+     local_market_backend.greet(name).then((greeting) => {
+       setGreeting(greeting);
+     });
+     return false;
+   }
+   return (
+   <main>
+   <img src="/logo2.svg" alt="DFINITY logo" />
+   <br />
+   <br />
+   <form action="#" onSubmit={handleSubmit}>
+     <label htmlFor="name">Enter your name: &nbsp;</label>
+     <input id="name" alt="Name" type="text" />
+     <button type="submit">Click Me!</button>
+   </form>
+   <section id="greeting">{greeting}</section>
+ </main>
+ );
+}
 
 export default App;
+
