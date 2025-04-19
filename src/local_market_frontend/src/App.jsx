@@ -1,30 +1,33 @@
-import { useState } from 'react';
- import { local_market_backend } from 'declarations/local_market_backend';
- 
- function App() {
-   const [greeting, setGreeting] = useState('');
- 
-   function handleSubmit(event) {
-     event.preventDefault();
-     const name = event.target.elements.name.value;
-     local_market_backend.greet(name).then((greeting) => {
-       setGreeting(greeting);
-     });
-     return false;
-   }
-   return (
-   <main>
-   <img src="/logo2.svg" alt="DFINITY logo" />
-   <br />
-   <br />
-   <form action="#" onSubmit={handleSubmit}>
-     <label htmlFor="name">Enter your name: &nbsp;</label>
-     <input id="name" alt="Name" type="text" />
-     <button type="submit">Click Me!</button>
-   </form>
-   <section id="greeting">{greeting}</section>
- </main>
- );
+import React from 'react';
+import { ChakraProvider, Box, Container } from '@chakra-ui/react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import ShopList from './pages/ShopList';
+import ShopDetails from './pages/ShopDetails';
+import SellerDashboard from './pages/SellerDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import theme from './theme';
+
+function App() {
+  return (
+    <ChakraProvider theme={theme}>
+      <Router>
+        <Box minH="100vh">
+          <Navbar />
+          <Container maxW="container.xl" py={8}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/shops" element={<ShopList />} />
+              <Route path="/shop/:id" element={<ShopDetails />} />
+              <Route path="/seller/dashboard" element={<SellerDashboard />} />
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            </Routes>
+          </Container>
+        </Box>
+      </Router>
+    </ChakraProvider>
+  );
 }
 
 export default App;
