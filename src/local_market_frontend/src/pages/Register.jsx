@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -9,15 +9,16 @@ import {
   FormControl,
   FormLabel,
   Input,
-  Select,
   useToast,
   Radio,
   RadioGroup,
   Stack,
   Divider,
+  Spinner,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { local_market_backend } from '../../../declarations/local_market_backend';
+import { AuthClient } from '@dfinity/auth-client';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -25,9 +26,45 @@ const Register = () => {
     email: '',
     userType: 'Buyer',
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const authClient = await AuthClient.create();
+      const authenticated = await authClient.isAuthenticated();
+      
+      if (!authenticated) {
+        // Redirect to Internet Identity
+        await authClient.login({
+          identityProvider: process.env.II_URL || "http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943",
+          onSuccess: () => {
+            setIsAuthenticated(true);
+            setLoading(false);
+          },
+        });
+      } else {
+        setIsAuthenticated(true);
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Error checking authentication:', error);
+      toast({
+        title: 'Authentication Error',
+        description: 'Failed to check authentication status',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -49,17 +86,22 @@ const Register = () => {
     setLoading(true);
 
     try {
-      // Get the current user's principal ID
-      const principal = window.ic?.agent?.getPrincipal()?.toString() || '2vxsx-fae';
+      const authClient = await AuthClient.create();
+      const identity = await authClient.getIdentity();
+      const principal = identity.getPrincipal();
       
-      // Register the user
+      // Convert the user type string to the proper enum format
+      const userType = {
+        [formData.userType]: null
+      };
+      
       const result = await local_market_backend.register_user(
         formData.name,
         formData.email,
-        formData.userType
+        userType
       );
       
-      if (result.Ok) {
+      if ('Ok' in result) {
         toast({
           title: 'Registration Successful',
           description: 'Your account has been created successfully',
@@ -68,7 +110,6 @@ const Register = () => {
           isClosable: true,
         });
         
-        // Redirect based on user type
         if (formData.userType === 'Seller') {
           navigate('/seller/dashboard');
         } else if (formData.userType === 'Admin') {
@@ -89,7 +130,7 @@ const Register = () => {
       console.error('Error registering user:', error);
       toast({
         title: 'Error',
-        description: 'Failed to register user',
+        description: 'Failed to register user. Please try again.',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -98,6 +139,27 @@ const Register = () => {
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <Container maxW="container.md" py={10}>
+        <VStack spacing={8} align="center">
+          <Spinner size="xl" />
+          <Text>Checking authentication status...</Text>
+        </VStack>
+      </Container>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Container maxW="container.md" py={10}>
+        <VStack spacing={8} align="center">
+          <Text>Redirecting to authentication...</Text>
+        </VStack>
+      </Container>
+    );
+  }
 
   return (
     <Container maxW="container.md" py={10}>
