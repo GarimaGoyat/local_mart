@@ -24,16 +24,52 @@ function App() {
                 </Link>
                 <Spacer />
                 <Flex gap={4}>
-                  <Button as={Link} to="/" variant="ghost" colorScheme="whiteAlpha" leftIcon={<FiHome />}>
+                  <Button 
+                    as={Link} 
+                    to="/" 
+                    variant="ghost" 
+                    colorScheme="whiteAlpha" 
+                    leftIcon={<FiHome size="20px" color="#1a365d" />}
+                    _hover={{ bg: 'whiteAlpha.300' }}
+                    color="white"
+                    fontWeight="bold"
+                  >
                     Home
                   </Button>
-                  <Button as={Link} to="/register" variant="ghost" colorScheme="whiteAlpha" leftIcon={<FiUser />}>
+                  <Button 
+                    as={Link} 
+                    to="/register" 
+                    variant="ghost" 
+                    colorScheme="whiteAlpha" 
+                    leftIcon={<FiUser size="20px" color="#1a365d" />}
+                    _hover={{ bg: 'whiteAlpha.300' }}
+                    color="white"
+                    fontWeight="bold"
+                  >
                     Register
                   </Button>
-                  <Button as={Link} to="/seller/dashboard" variant="ghost" colorScheme="whiteAlpha" leftIcon={<FiShoppingBag />}>
+                  <Button 
+                    as={Link} 
+                    to="/seller/dashboard" 
+                    variant="ghost" 
+                    colorScheme="whiteAlpha" 
+                    leftIcon={<FiShoppingBag size="20px" color="#1a365d" />}
+                    _hover={{ bg: 'whiteAlpha.300' }}
+                    color="white"
+                    fontWeight="bold"
+                  >
                     Seller Dashboard
                   </Button>
-                  <Button as={Link} to="/admin/dashboard" variant="ghost" colorScheme="whiteAlpha" leftIcon={<FiSettings />}>
+                  <Button 
+                    as={Link} 
+                    to="/admin/dashboard" 
+                    variant="ghost" 
+                    colorScheme="whiteAlpha" 
+                    leftIcon={<FiSettings size="20px" color="#1a365d" />}
+                    _hover={{ bg: 'whiteAlpha.300' }}
+                    color="white"
+                    fontWeight="bold"
+                  >
                     Admin Dashboard
                   </Button>
                 </Flex>

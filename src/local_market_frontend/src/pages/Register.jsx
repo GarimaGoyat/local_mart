@@ -22,7 +22,7 @@ const Register = () => {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [principal, setPrincipal] = useState(null);
-  const { backendActor, login } = useAuth();
+  const { backendActor, login, setUser } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -67,10 +67,9 @@ const Register = () => {
       setIsAuthenticating(false);
     }
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+  
     if (!isAuthenticated) {
       toast({
         title: 'Authentication required',
@@ -80,7 +79,7 @@ const Register = () => {
       });
       return;
     }
-
+  
     if (!name.trim()) {
       toast({
         title: 'Name required',
@@ -90,54 +89,53 @@ const Register = () => {
       });
       return;
     }
-    
+  
     try {
       console.log('Starting registration process...');
       console.log('Name:', name);
       console.log('User Type:', userType);
       console.log('Principal:', principal?.toString());
-      
+  
       // Convert string to enum object format
-      const userTypeEnum = userType === 'Admin' 
-        ? { Admin: null } 
-        : { Seller: null };
-      
+      const userTypeEnum = userType === 'Admin' ? { Admin: null } : { Seller: null };
       console.log('User Type Enum:', userTypeEnum);
-      
+  
+      // Register the user
       const result = await backendActor.register_user(name.trim(), userTypeEnum);
       console.log('Registration result:', result);
-      
+  
       const [message, registeredUserType] = result;
       console.log('Message:', message);
       console.log('Registered User Type:', registeredUserType);
-      
+  
+      // Show success message
       toast({
         title: 'Registration successful',
         description: message,
         status: 'success',
         duration: 3000,
       });
-
-      // Redirect based on user type
-      if (registeredUserType && registeredUserType.Admin !== undefined) {
-        console.log('Redirecting to admin dashboard...');
-        navigate('/admin/dashboard');
-      } else if (registeredUserType && registeredUserType.Seller !== undefined) {
+  
+      // Update user state in context
+      const authClient = await AuthClient.create();
+      const identity = await authClient.getIdentity();
+      const userPrincipal = identity.getPrincipal();
+      const userData = await backendActor.get_user(userPrincipal);
+      
+      // Use the setUser function from context to update user state
+      setUser(userData);
+      
+      // Force a hard navigation to the appropriate dashboard
+      if (userType === 'Seller') {
         console.log('Redirecting to seller dashboard...');
-        navigate('/seller/dashboard');
-      } else {
-        console.log('Redirecting to login...');
-        navigate('/login');
+        // Use window.location for a hard navigation
+        window.location.href = '/seller/dashboard';
+      } else if (userType === 'Admin') {
+        console.log('Redirecting to admin dashboard...');
+        window.location.href = '/admin/dashboard';
       }
     } catch (error) {
       console.error('Registration error:', error);
-      console.error('Error details:', {
-        name: name,
-        userType: userType,
-        principal: principal?.toString(),
-        error: error.toString()
-      });
-      
       toast({
         title: 'Registration failed',
         description: error.message || 'An error occurred during registration. Please try again.',
@@ -147,7 +145,7 @@ const Register = () => {
       });
     }
   };
-
+  
   return (
     <Box maxW="md" mx="auto" mt={8} p={6} borderWidth={1} borderRadius={8} boxShadow="lg">
       <VStack spacing={4}>
