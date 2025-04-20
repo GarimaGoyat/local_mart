@@ -43,8 +43,11 @@ import {
   Tr,
   Th,
   Td,
+  IconButton,
+  Tooltip,
+  Center,
 } from '@chakra-ui/react';
-import { FiPlus, FiTrash2, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiCheckCircle, FiAlertCircle, FiPackage, FiInfo, FiShoppingBag, FiHome } from 'react-icons/fi';
 import { useAuth } from '../StateManagement/useContext/useClient.jsx';
 
 const SellerDashboard = () => {
@@ -67,8 +70,22 @@ const SellerDashboard = () => {
   const [selectedShop, setSelectedShop] = useState(null);
   const { isOpen: isShopModalOpen, onOpen: onShopModalOpen, onClose: onShopModalClose } = useDisclosure();
   const { isOpen: isProductModalOpen, onOpen: onProductModalOpen, onClose: onProductModalClose } = useDisclosure();
+  const { isOpen: isShopDetailsModalOpen, onOpen: onShopDetailsModalOpen, onClose: onShopDetailsModalClose } = useDisclosure();
   const { backendActor, user } = useAuth();
   const toast = useToast();
+
+  const categories = [
+    'Electronics',
+    'Clothing',
+    'Food',
+    'Books',
+    'Home & Kitchen',
+    'Sports',
+    'Beauty',
+    'Toys',
+    'Automotive',
+    'Health',
+  ];
 
   useEffect(() => {
     if (user?.user_type?.Seller === undefined) {
@@ -141,7 +158,15 @@ const SellerDashboard = () => {
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
-    if (!selectedShop) return;
+    if (!selectedShop) {
+      toast({
+        title: 'Error',
+        description: 'Please select a shop first',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
 
     try {
       await backendActor.add_product(
@@ -181,6 +206,29 @@ const SellerDashboard = () => {
     }
   };
 
+  const handleUpdateShop = async (e) => {
+    e.preventDefault();
+    try {
+      // TODO: Implement shop update functionality
+      toast({
+        title: 'Success',
+        description: 'Shop details updated successfully',
+        status: 'success',
+        duration: 3000,
+      });
+      onShopDetailsModalClose();
+      loadShops();
+    } catch (error) {
+      console.error('Error updating shop:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update shop details',
+        status: 'error',
+        duration: 3000,
+      });
+    }
+  };
+
   if (user?.user_type?.Seller === undefined) {
     return <Box p={4}>Access denied. Seller only.</Box>;
   }
@@ -189,6 +237,87 @@ const SellerDashboard = () => {
     <Container maxW="container.xl" py={8}>
       <VStack spacing={6} align="stretch">
         <Heading>Seller Dashboard</Heading>
+
+        {/* Main Action Icons */}
+        <Box 
+          p={6} 
+          bg="white" 
+          borderRadius="lg" 
+          boxShadow="md"
+          mb={6}
+        >
+          <Center>
+            <HStack spacing={12} justify="center" py={4}>
+              <VStack spacing={3}>
+                <Tooltip label="Add Products" placement="top">
+                  <IconButton
+                    icon={<FiShoppingBag size="32px" />}
+                    size="xl"
+                    colorScheme="blue"
+                    onClick={() => {
+                      if (shops.length === 0) {
+                        toast({
+                          title: 'No Shops',
+                          description: 'Please create a shop first',
+                          status: 'warning',
+                          duration: 3000,
+                        });
+                        return;
+                      }
+                      onProductModalOpen();
+                    }}
+                    aria-label="Add Products"
+                    width="100px"
+                    height="100px"
+                    borderRadius="full"
+                    boxShadow="lg"
+                    _hover={{
+                      transform: 'scale(1.05)',
+                      transition: 'all 0.2s ease-in-out',
+                    }}
+                  />
+                </Tooltip>
+                <Text fontSize="lg" fontWeight="semibold" color="gray.700">
+                  Add Products
+                </Text>
+              </VStack>
+              <VStack spacing={3}>
+                <Tooltip label="Shop Details" placement="top">
+                  <IconButton
+                    icon={<FiHome size="32px" />}
+                    size="xl"
+                    colorScheme="green"
+                    onClick={() => {
+                      if (shops.length === 0) {
+                        toast({
+                          title: 'No Shops',
+                          description: 'Please create a shop first',
+                          status: 'warning',
+                          duration: 3000,
+                        });
+                        return;
+                      }
+                      setSelectedShop(shops[0]);
+                      onShopDetailsModalOpen();
+                    }}
+                    aria-label="Shop Details"
+                    width="100px"
+                    height="100px"
+                    borderRadius="full"
+                    boxShadow="lg"
+                    _hover={{
+                      transform: 'scale(1.05)',
+                      transition: 'all 0.2s ease-in-out',
+                    }}
+                  />
+                </Tooltip>
+                <Text fontSize="lg" fontWeight="semibold" color="gray.700">
+                  Shop Details
+                </Text>
+              </VStack>
+            </HStack>
+          </Center>
+        </Box>
 
         <Tabs variant="enclosed">
           <TabList>
@@ -234,15 +363,35 @@ const SellerDashboard = () => {
                           </Badge>
                         </Td>
                         <Td>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedShop(shop);
-                              onProductModalOpen();
-                            }}
-                          >
-                            Add Product
-                          </Button>
+                          <HStack spacing={2}>
+                            <Tooltip label="Add Product">
+                              <IconButton
+                                icon={<FiPackage />}
+                                size="sm"
+                                colorScheme="blue"
+                                onClick={() => {
+                                  setSelectedShop(shop);
+                                  onProductModalOpen();
+                                }}
+                              />
+                            </Tooltip>
+                            <Tooltip label="Shop Details">
+                              <IconButton
+                                icon={<FiInfo />}
+                                size="sm"
+                                colorScheme="green"
+                                onClick={() => {
+                                  // TODO: Implement shop details view
+                                  toast({
+                                    title: 'Shop Details',
+                                    description: `Viewing details for ${shop.name}`,
+                                    status: 'info',
+                                    duration: 3000,
+                                  });
+                                }}
+                              />
+                            </Tooltip>
+                          </HStack>
                         </Td>
                       </Tr>
                     ))}
@@ -385,31 +534,96 @@ const SellerDashboard = () => {
                   </FormControl>
                   <FormControl isRequired>
                     <FormLabel>Category</FormLabel>
-                    <Input
+                    <Select
                       value={newProduct.category}
                       onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                      placeholder="Enter category"
-                    />
+                      placeholder="Select category"
+                    >
+                      {categories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </Select>
                   </FormControl>
                   <FormControl isRequired>
-                    <FormLabel>Stock</FormLabel>
+                    <FormLabel>Quantity</FormLabel>
                     <NumberInput
                       value={newProduct.stock}
                       onChange={(value) => setNewProduct({ ...newProduct, stock: value })}
                       min={0}
                     >
-                      <NumberInputField placeholder="Enter stock" />
+                      <NumberInputField placeholder="Enter quantity" />
                       <NumberInputStepper>
                         <NumberIncrementStepper />
                         <NumberDecrementStepper />
                       </NumberInputStepper>
                     </NumberInput>
                   </FormControl>
-                  <Button type="submit" colorScheme="blue" width="100%">
-                    Add Product
-                  </Button>
+                  <HStack spacing={4} width="100%" justify="flex-end">
+                    <Button variant="outline" onClick={onProductModalClose}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" colorScheme="blue">
+                      Save
+                    </Button>
+                  </HStack>
                 </VStack>
               </form>
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+
+        {/* Shop Details Modal */}
+        <Modal isOpen={isShopDetailsModalOpen} onClose={onShopDetailsModalClose}>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Shop Details</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody pb={6}>
+              {selectedShop && (
+                <form onSubmit={handleUpdateShop}>
+                  <VStack spacing={4}>
+                    <FormControl>
+                      <FormLabel>Shop Name</FormLabel>
+                      <Input
+                        value={selectedShop.name}
+                        isReadOnly
+                      />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Description</FormLabel>
+                      <Textarea
+                        value={selectedShop.description}
+                        isReadOnly
+                      />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Address</FormLabel>
+                      <Input
+                        value={selectedShop.location.address}
+                        isReadOnly
+                      />
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Verification Status</FormLabel>
+                      <Badge
+                        colorScheme={selectedShop.is_verified ? 'green' : 'yellow'}
+                        fontSize="md"
+                        p={2}
+                        borderRadius="md"
+                      >
+                        {selectedShop.is_verified ? 'Verified' : 'Pending Verification'}
+                      </Badge>
+                    </FormControl>
+                    <HStack spacing={4} width="100%" justify="flex-end">
+                      <Button variant="outline" onClick={onShopDetailsModalClose}>
+                        Close
+                      </Button>
+                    </HStack>
+                  </VStack>
+                </form>
+              )}
             </ModalBody>
           </ModalContent>
         </Modal>
