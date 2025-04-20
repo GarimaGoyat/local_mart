@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -8,35 +8,75 @@ import {
   VStack,
   HStack,
   SimpleGrid,
-  Icon,
+  useColorModeValue,
+  Grid,
+  GridItem,
+  Image,
+  Badge,
+  Spinner,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Select,
+  Flex,
 } from '@chakra-ui/react';
-import { useColorModeValue } from '@chakra-ui/color-mode';
-import { FiMap, FiShoppingBag, FiUser, FiCheckCircle } from 'react-icons/fi';
 import { Link as RouterLink } from 'react-router-dom';
+import { FiMap, FiShoppingBag, FiUser, FiCheckCircle, FiSearch } from 'react-icons/fi';
+import { local_market_backend } from '../../../declarations/local_market_backend';
 
-const Feature = ({ title, text, icon }) => {
+const Feature = ({ icon: Icon, title, text }) => {
   return (
-    <VStack
-      align="start"
-      p={6}
-      bg={useColorModeValue('white', 'gray.700')}
-      rounded="xl"
-      shadow="md"
-      transition="all 0.3s"
-      _hover={{ transform: 'translateY(-5px)', shadow: 'lg' }}
-    >
-      <Icon as={icon} w={10} h={10} color="blue.500" />
-      <Heading size="md" mt={4}>
-        {title}
-      </Heading>
-      <Text color={useColorModeValue('gray.600', 'gray.300')} mt={2}>
-        {text}
-      </Text>
+    <VStack spacing={4} align="start">
+      <Box
+        p={2}
+        bg={useColorModeValue('blue.50', 'blue.900')}
+        borderRadius="full"
+      >
+        <Icon size={24} />
+      </Box>
+      <Text fontWeight="bold" fontSize="lg">{title}</Text>
+      <Text color="gray.600">{text}</Text>
     </VStack>
   );
 };
 
 const Home = () => {
+  const [shops, setShops] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+
+  useEffect(() => {
+    fetchShops();
+  }, []);
+
+  const fetchShops = async () => {
+    try {
+      setLoading(true);
+      const shopsResult = await local_market_backend.get_shops_by_location(0, 0, 1000000);
+      setShops(shopsResult);
+    } catch (error) {
+      console.error('Error fetching shops:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredShops = shops.filter(shop => {
+    const matchesSearch = shop.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         shop.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = !selectedCategory || shop.products.some(p => p.category === selectedCategory);
+    return matchesSearch && matchesCategory;
+  });
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minH="80vh">
+        <Spinner size="xl" />
+      </Box>
+    );
+  }
+
   return (
     <Box>
       {/* Hero Section */}
@@ -80,6 +120,94 @@ const Home = () => {
           </VStack>
         </Container>
       </Box>
+
+      {/* Search Section */}
+      <Container maxW="container.xl" py={8}>
+        <VStack spacing={4}>
+          <InputGroup size="lg">
+            <InputLeftElement pointerEvents="none">
+              <FiSearch color="gray.300" />
+            </InputLeftElement>
+            <Input
+              placeholder="Search shops and products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </InputGroup>
+          <Select
+            placeholder="Filter by category"
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+          >
+            <option value="groceries">Groceries</option>
+            <option value="fresh_produce">Fresh Produce</option>
+            <option value="dairy">Dairy</option>
+            <option value="bakery">Bakery</option>
+            <option value="meat">Meat</option>
+            <option value="other">Other</option>
+          </Select>
+        </VStack>
+      </Container>
+
+      {/* Shops Section */}
+      <Container maxW="container.xl" py={8}>
+        <Heading size="lg" mb={6}>Featured Shops</Heading>
+        <Grid templateColumns="repeat(auto-fill, minmax(300px, 1fr))" gap={6}>
+          {filteredShops.map((shop) => (
+            <GridItem key={shop.id}>
+              <Box
+                borderWidth="1px"
+                borderRadius="lg"
+                overflow="hidden"
+                p={4}
+              >
+                <VStack align="stretch" spacing={4}>
+                  <Box>
+                    <Heading size="md">{shop.name}</Heading>
+                    <Text color="gray.600" mt={1}>{shop.description}</Text>
+                    <HStack mt={2}>
+                      <Badge colorScheme={shop.is_verified ? 'green' : 'yellow'}>
+                        {shop.is_verified ? 'Verified' : 'Unverified'}
+                      </Badge>
+                      <Text fontSize="sm" color="gray.500">
+                        {shop.location.address}
+                      </Text>
+                    </HStack>
+                  </Box>
+                  
+                  <Box>
+                    <Heading size="sm" mb={2}>Products</Heading>
+                    <SimpleGrid columns={2} spacing={2}>
+                      {shop.products.slice(0, 4).map((product) => (
+                        <Box
+                          key={product.id}
+                          p={2}
+                          borderWidth="1px"
+                          borderRadius="md"
+                        >
+                          <Text fontSize="sm" fontWeight="bold">{product.name}</Text>
+                          <Text fontSize="sm" color="blue.500">
+                            ${product.price.toFixed(2)}
+                          </Text>
+                        </Box>
+                      ))}
+                    </SimpleGrid>
+                  </Box>
+                  
+                  <Button
+                    as={RouterLink}
+                    to={`/shop/${shop.id}`}
+                    colorScheme="blue"
+                    size="sm"
+                  >
+                    View Shop
+                  </Button>
+                </VStack>
+              </Box>
+            </GridItem>
+          ))}
+        </Grid>
+      </Container>
 
       {/* Features Section */}
       <Container maxW="container.xl" py={16}>

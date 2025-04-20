@@ -32,8 +32,13 @@ import {
   Divider,
   Flex,
   Spinner,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
 } from '@chakra-ui/react';
-import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiCheckCircle, FiAlertCircle } from 'react-icons/fi';
 import { local_market_backend } from '../../../declarations/local_market_backend';
 
 const SellerDashboard = () => {
@@ -55,8 +60,12 @@ const SellerDashboard = () => {
     category: '',
     images: [],
   });
+  const [verificationFormData, setVerificationFormData] = useState({
+    documents: [],
+  });
   const { isOpen: isShopModalOpen, onOpen: onShopModalOpen, onClose: onShopModalClose } = useDisclosure();
   const { isOpen: isProductModalOpen, onOpen: onProductModalOpen, onClose: onProductModalClose } = useDisclosure();
+  const { isOpen: isVerificationModalOpen, onOpen: onVerificationModalOpen, onClose: onVerificationModalClose } = useDisclosure();
   const toast = useToast();
 
   useEffect(() => {
@@ -66,8 +75,9 @@ const SellerDashboard = () => {
   const fetchSellerData = async () => {
     try {
       setLoading(true);
-      // Get the current user's principal ID
-      const principal = window.ic?.agent?.getPrincipal()?.toString() || '2vxsx-fae';
+      const authClient = await AuthClient.create();
+      const identity = await authClient.getIdentity();
+      const principal = identity.getPrincipal();
       
       // Get the user data
       const userResult = await local_market_backend.get_user(principal);
@@ -150,8 +160,6 @@ const SellerDashboard = () => {
 
   const handleAddProduct = async () => {
     try {
-      if (!shop) return;
-      
       const result = await local_market_backend.add_product(
         shop.id,
         productFormData.name,
@@ -166,7 +174,7 @@ const SellerDashboard = () => {
         onProductModalClose();
         toast({
           title: 'Product Added',
-          description: 'Your product has been added successfully',
+          description: 'Product has been added successfully',
           status: 'success',
           duration: 5000,
           isClosable: true,
@@ -192,23 +200,36 @@ const SellerDashboard = () => {
     }
   };
 
-  const handleDeleteProduct = async (productId) => {
+  const handleRequestVerification = async () => {
     try {
-      // This would be implemented in the backend
-      // For now, we'll just update the UI
-      setProducts(products.filter(p => p.id !== productId));
-      toast({
-        title: 'Product Deleted',
-        description: 'Your product has been deleted successfully',
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
+      const result = await local_market_backend.request_verification(
+        shop.id,
+        verificationFormData.documents
+      );
+      
+      if (result.Ok) {
+        onVerificationModalClose();
+        toast({
+          title: 'Verification Requested',
+          description: 'Your verification request has been submitted',
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.Err || 'Failed to submit verification request',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     } catch (error) {
-      console.error('Error deleting product:', error);
+      console.error('Error requesting verification:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete product',
+        description: 'Failed to submit verification request',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -251,50 +272,86 @@ const SellerDashboard = () => {
                 </Text>
               </HStack>
             </Box>
-            <Button colorScheme="blue" leftIcon={<FiPlus />} onClick={onProductModalOpen}>
-              Add Product
-            </Button>
+            <HStack spacing={4}>
+              {!shop.is_verified && (
+                <Button
+                  colorScheme="yellow"
+                  leftIcon={<FiAlertCircle />}
+                  onClick={onVerificationModalOpen}
+                >
+                  Request Verification
+                </Button>
+              )}
+              <Button colorScheme="blue" leftIcon={<FiPlus />} onClick={onProductModalOpen}>
+                Add Product
+              </Button>
+            </HStack>
           </Flex>
           
           <Divider />
           
-          <Box>
-            <Heading size="md" mb={4}>Your Products</Heading>
-            {products.length === 0 ? (
-              <Text color="gray.500">You haven't added any products yet.</Text>
-            ) : (
-              <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }} gap={6}>
-                {products.map((product) => (
-                  <GridItem key={product.id} borderWidth="1px" borderRadius="lg" overflow="hidden">
-                    <Box p={4}>
-                      <Flex justify="space-between" align="start">
-                        <Box>
-                          <Heading size="sm">{product.name}</Heading>
-                          <Text color="gray.600" fontSize="sm" mt={1}>
-                            {product.description}
-                          </Text>
-                          <Text fontWeight="bold" mt={2}>
-                            ${product.price.toFixed(2)}
-                          </Text>
-                          <Badge colorScheme={product.available ? 'green' : 'red'} mt={2}>
-                            {product.available ? 'Available' : 'Out of Stock'}
-                          </Badge>
-                        </Box>
-                        <Button
-                          size="sm"
-                          colorScheme="red"
-                          variant="ghost"
-                          onClick={() => handleDeleteProduct(product.id)}
-                        >
-                          <FiTrash2 />
-                        </Button>
-                      </Flex>
-                    </Box>
-                  </GridItem>
-                ))}
-              </Grid>
-            )}
-          </Box>
+          <Tabs variant="enclosed">
+            <TabList>
+              <Tab>Products</Tab>
+              <Tab>Shop Details</Tab>
+            </TabList>
+            
+            <TabPanels>
+              <TabPanel>
+                <Grid templateColumns="repeat(auto-fill, minmax(250px, 1fr))" gap={6}>
+                  {products.map((product) => (
+                    <GridItem key={product.id}>
+                      <Box
+                        borderWidth="1px"
+                        borderRadius="lg"
+                        overflow="hidden"
+                        p={4}
+                      >
+                        {product.images.length > 0 && (
+                          <Image
+                            src={product.images[0]}
+                            alt={product.name}
+                            borderRadius="md"
+                            mb={4}
+                          />
+                        )}
+                        <Heading size="md" mb={2}>{product.name}</Heading>
+                        <Text color="gray.600" mb={2}>{product.description}</Text>
+                        <Text fontWeight="bold" color="blue.500">
+                          ${product.price.toFixed(2)}
+                        </Text>
+                        <Badge colorScheme={product.available ? 'green' : 'red'} mt={2}>
+                          {product.available ? 'Available' : 'Out of Stock'}
+                        </Badge>
+                      </Box>
+                    </GridItem>
+                  ))}
+                </Grid>
+              </TabPanel>
+              
+              <TabPanel>
+                <VStack align="stretch" spacing={4}>
+                  <Box>
+                    <Text fontWeight="bold">Contact Information</Text>
+                    <Text>{shop.contact}</Text>
+                  </Box>
+                  <Box>
+                    <Text fontWeight="bold">Location</Text>
+                    <Text>{shop.location.address}</Text>
+                    <Text fontSize="sm" color="gray.500">
+                      Coordinates: {shop.location.latitude}, {shop.location.longitude}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text fontWeight="bold">Verification Status</Text>
+                    <Badge colorScheme={shop.is_verified ? 'green' : 'yellow'}>
+                      {shop.is_verified ? 'Verified' : 'Unverified'}
+                    </Badge>
+                  </Box>
+                </VStack>
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
         </VStack>
       )}
       
@@ -435,29 +492,58 @@ const SellerDashboard = () => {
                   value={productFormData.category}
                   onChange={(e) => setProductFormData({ ...productFormData, category: e.target.value })}
                 >
-                  <option value="fruits">Fruits</option>
-                  <option value="vegetables">Vegetables</option>
+                  <option value="groceries">Groceries</option>
+                  <option value="fresh_produce">Fresh Produce</option>
                   <option value="dairy">Dairy</option>
-                  <option value="meat">Meat</option>
                   <option value="bakery">Bakery</option>
+                  <option value="meat">Meat</option>
                   <option value="other">Other</option>
                 </Select>
               </FormControl>
               
+              <Button colorScheme="blue" width="100%" onClick={handleAddProduct}>
+                Add Product
+              </Button>
+            </VStack>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+      
+      {/* Verification Request Modal */}
+      <Modal isOpen={isVerificationModalOpen} onClose={onVerificationModalClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Request Shop Verification</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody pb={6}>
+            <VStack spacing={4}>
+              <Text>
+                To verify your shop, please provide the following documents:
+              </Text>
               <FormControl>
-                <FormLabel>Image URLs (one per line)</FormLabel>
-                <Textarea
-                  placeholder="Enter image URLs, one per line"
-                  value={productFormData.images.join('\n')}
-                  onChange={(e) => setProductFormData({
-                    ...productFormData,
-                    images: e.target.value.split('\n').filter(url => url.trim() !== '')
+                <FormLabel>Business Registration Number</FormLabel>
+                <Input
+                  placeholder="Enter your business registration number"
+                  value={verificationFormData.documents[0] || ''}
+                  onChange={(e) => setVerificationFormData({
+                    ...verificationFormData,
+                    documents: [e.target.value, ...verificationFormData.documents.slice(1)]
                   })}
                 />
               </FormControl>
-              
-              <Button colorScheme="blue" width="100%" onClick={handleAddProduct}>
-                Add Product
+              <FormControl>
+                <FormLabel>Tax ID</FormLabel>
+                <Input
+                  placeholder="Enter your tax ID"
+                  value={verificationFormData.documents[1] || ''}
+                  onChange={(e) => setVerificationFormData({
+                    ...verificationFormData,
+                    documents: [verificationFormData.documents[0], e.target.value, ...verificationFormData.documents.slice(2)]
+                  })}
+                />
+              </FormControl>
+              <Button colorScheme="blue" width="100%" onClick={handleRequestVerification}>
+                Submit Verification Request
               </Button>
             </VStack>
           </ModalBody>

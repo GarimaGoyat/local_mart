@@ -55,8 +55,6 @@ const AdminDashboard = () => {
       setShops(shopsResult);
       
       // Get verification requests
-      // This would be implemented in the backend
-      // For now, we'll filter shops that are not verified
       const requests = shopsResult
         .filter(shop => !shop.is_verified)
         .map(shop => ({

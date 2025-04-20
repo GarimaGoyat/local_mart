@@ -1,7 +1,9 @@
 type User = record {
-    id : principal;
-    name : text;
-    user_type : UserType;
+    "principal" : principal;
+    "name" : text;
+    "email" : text;
+    "user_type" : UserType;
+    "created_at" : nat64;
 };
 
 type UserType = variant {
@@ -10,53 +12,37 @@ type UserType = variant {
     Admin;
 };
 
-type Shop = record {
-    id : text;
-    name : text;
-    owner : principal;
-    description : text;
-    location : Location;
-    verification_status : VerificationStatus;
+type Location = record {
+    "latitude" : float64;
+    "longitude" : float64;
+    "address" : text;
+    "geohash" : text;
 };
 
-type Location = record {
-    latitude : float64;
-    longitude : float64;
-    geohash : text;
+type Shop = record {
+    "id" : nat64;
+    "owner" : principal;
+    "name" : text;
+    "description" : text;
+    "location" : Location;
+    "is_verified" : bool;
+    "products" : vec Product;
 };
 
 type Product = record {
-    id : text;
-    name : text;
-    description : text;
-    price : float64;
-    shop_id : text;
-    image_url : text;
-};
-
-type VerificationRequest = record {
-    id : text;
-    shop_id : text;
-    status : VerificationStatus;
-    documents : vec text;
-};
-
-type VerificationStatus = variant {
-    Pending;
-    Approved;
-    Rejected;
+    "id" : nat64;
+    "shop_id" : nat64;
+    "name" : text;
+    "description" : text;
+    "price" : float64;
+    "category" : text;
+    "stock" : nat32;
+    "available" : bool;
+    "created_at" : nat64;
 };
 
 service : {
-    greet : (text) -> (text);
-    register_user : (text, UserType) -> (User);
-    get_user : (principal) -> (opt User);
-    create_shop : (text, text, Location) -> (Shop);
-    get_shop : (text) -> (opt Shop);
-    get_shops_by_location : (Location, float64) -> (vec Shop);
-    add_product : (text, text, float64, text, text) -> (Product);
-    get_product : (text) -> (opt Product);
-    get_shop_products : (text) -> (vec Product);
-    request_verification : (text, vec text) -> (VerificationRequest);
-    process_verification : (text, VerificationStatus) -> (VerificationRequest);
-}
+    "register_user" : (text, text, UserType) -> (variant { Ok : User; Err : text });
+    "get_user" : (principal) -> (opt User) query;
+    "get_shops_by_location" : (float64, float64, float64) -> (vec Shop) query;
+} 
