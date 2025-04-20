@@ -14,7 +14,8 @@
     "local_market_backend": {
       "candid": "src/local_market_backend/local_market_backend.did",
       "package": "local_market_backend",
-      "type": "rust"
+      "type": "rust",
+      "build": "cargo build --target wasm32-unknown-unknown --release -p local_market_backend"
     },
     "local_market_frontend": {
       "dependencies": [

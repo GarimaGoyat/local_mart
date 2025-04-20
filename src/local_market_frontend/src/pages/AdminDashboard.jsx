@@ -26,17 +26,22 @@ import {
   Tab,
   TabPanel,
   Link,
+  Spinner,
+  HStack,
+  VStack,
+  Divider,
+  useDisclosure,
 } from '@chakra-ui/react';
 import { FiCheck, FiX } from 'react-icons/fi';
 import { local_market_backend } from '../../../declarations/local_market_backend';
 
-export default function AdminDashboard() {
+const AdminDashboard = () => {
   const [shops, setShops] = useState([]);
   const [verificationRequests, setVerificationRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [loading, setLoading] = useState(true);
-  const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
+  const toast = useToast();
 
   useEffect(() => {
     fetchAdminData();
@@ -44,13 +49,26 @@ export default function AdminDashboard() {
 
   const fetchAdminData = async () => {
     try {
-      const [shopsData, requestsData] = await Promise.all([
-        local_market_backend.get_all_shops(),
-        local_market_backend.get_verification_requests(),
-      ]);
-      setShops(shopsData);
-      setVerificationRequests(requestsData);
+      setLoading(true);
+      // Get all shops
+      const shopsResult = await local_market_backend.get_shops_by_location(0, 0, 1000000);
+      setShops(shopsResult);
+      
+      // Get verification requests
+      // This would be implemented in the backend
+      // For now, we'll filter shops that are not verified
+      const requests = shopsResult
+        .filter(shop => !shop.is_verified)
+        .map(shop => ({
+          shop_id: shop.id,
+          documents: [],
+          status: { Pending: null },
+          created_at: shop.created_at,
+        }));
+      
+      setVerificationRequests(requests);
     } catch (error) {
+      console.error('Error fetching admin data:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch admin data',
@@ -58,25 +76,46 @@ export default function AdminDashboard() {
         duration: 5000,
         isClosable: true,
       });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const handleVerification = async (shopId, status) => {
+  const handleVerification = async (shopId, approved) => {
     try {
-      await local_market_backend.process_verification(shopId, status);
-      await fetchAdminData();
-      toast({
-        title: 'Success',
-        description: `Shop ${
-          status === 'Approved' ? 'verified' : 'verification rejected'
-        } successfully`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-      onClose();
+      const status = approved ? { Approved: null } : { Rejected: null };
+      
+      const result = await local_market_backend.process_verification(shopId, status);
+      
+      if (result.Ok) {
+        // Update the shops list
+        setShops(shops.map(shop => 
+          shop.id === shopId ? result.Ok : shop
+        ));
+        
+        // Remove the request from verification requests
+        setVerificationRequests(verificationRequests.filter(req => req.shop_id !== shopId));
+        
+        onClose();
+        
+        toast({
+          title: 'Verification Processed',
+          description: `Shop has been ${approved ? 'approved' : 'rejected'}`,
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.Err || 'Failed to process verification',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     } catch (error) {
+      console.error('Error processing verification:', error);
       toast({
         title: 'Error',
         description: 'Failed to process verification',
@@ -93,169 +132,181 @@ export default function AdminDashboard() {
   };
 
   if (loading) {
-    return <Text>Loading...</Text>;
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minH="80vh">
+        <Spinner size="xl" />
+      </Box>
+    );
   }
 
   return (
-    <Container maxW="container.xl">
-      <Stack spacing={8}>
-        <Heading>Admin Dashboard</Heading>
-
-        <Tabs>
-          <TabList>
-            <Tab>Verification Requests</Tab>
-            <Tab>All Shops</Tab>
-          </TabList>
-
-          <TabPanels>
-            <TabPanel>
-              <Table variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th>Shop Name</Th>
-                    <Th>Submitted On</Th>
-                    <Th>Status</Th>
-                    <Th>Actions</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {verificationRequests.map((request) => (
-                    <Tr key={request.shop_id}>
-                      <Td>
-                        {shops.find((s) => s.id === request.shop_id)?.name}
-                      </Td>
-                      <Td>
-                        {new Date(
-                          Number(request.created_at) / 1_000_000
-                        ).toLocaleDateString()}
-                      </Td>
-                      <Td>
-                        <Badge
-                          colorScheme={
-                            request.status === 'Pending'
-                              ? 'yellow'
-                              : request.status === 'Approved'
-                              ? 'green'
-                              : 'red'
-                          }
-                        >
-                          {request.status}
-                        </Badge>
-                      </Td>
-                      <Td>
-                        {request.status === 'Pending' && (
-                          <Button
-                            size="sm"
-                            onClick={() => openVerificationModal(request)}
-                          >
-                            Review
-                          </Button>
-                        )}
-                      </Td>
+    <Container maxW="container.xl" py={8}>
+      <Heading size="lg" mb={6}>Admin Dashboard</Heading>
+      
+      <Tabs variant="enclosed">
+        <TabList>
+          <Tab>Verification Requests</Tab>
+          <Tab>All Shops</Tab>
+        </TabList>
+        
+        <TabPanels>
+          <TabPanel>
+            <Box>
+              <Heading size="md" mb={4}>Verification Requests</Heading>
+              
+              {verificationRequests.length === 0 ? (
+                <Text color="gray.500">No pending verification requests.</Text>
+              ) : (
+                <Table variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>Shop ID</Th>
+                      <Th>Created At</Th>
+                      <Th>Status</Th>
+                      <Th>Actions</Th>
                     </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </TabPanel>
-
-            <TabPanel>
-              <Table variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th>Shop Name</Th>
-                    <Th>Owner</Th>
-                    <Th>Location</Th>
-                    <Th>Status</Th>
-                    <Th>Actions</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {shops.map((shop) => (
-                    <Tr key={shop.id}>
-                      <Td>{shop.name}</Td>
-                      <Td>{shop.owner.toText()}</Td>
-                      <Td>{shop.location.address}</Td>
-                      <Td>
-                        <Badge
-                          colorScheme={shop.is_verified ? 'green' : 'yellow'}
-                        >
-                          {shop.is_verified ? 'Verified' : 'Pending'}
-                        </Badge>
-                      </Td>
-                      <Td>
-                        <Link href={`/shop/${shop.id}`} color="brand.500">
-                          View Details
-                        </Link>
-                      </Td>
+                  </Thead>
+                  <Tbody>
+                    {verificationRequests.map((request) => {
+                      const shop = shops.find(s => s.id === request.shop_id);
+                      return (
+                        <Tr key={request.shop_id}>
+                          <Td>
+                            <Link color="blue.500" onClick={() => openVerificationModal(request)}>
+                              {shop ? shop.name : request.shop_id}
+                            </Link>
+                          </Td>
+                          <Td>{new Date(Number(request.created_at) / 1000000).toLocaleDateString()}</Td>
+                          <Td>
+                            <Badge colorScheme="yellow">Pending</Badge>
+                          </Td>
+                          <Td>
+                            <HStack spacing={2}>
+                              <Button
+                                size="sm"
+                                colorScheme="green"
+                                leftIcon={<FiCheck />}
+                                onClick={() => handleVerification(request.shop_id, true)}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                colorScheme="red"
+                                leftIcon={<FiX />}
+                                onClick={() => handleVerification(request.shop_id, false)}
+                              >
+                                Reject
+                              </Button>
+                            </HStack>
+                          </Td>
+                        </Tr>
+                      );
+                    })}
+                  </Tbody>
+                </Table>
+              )}
+            </Box>
+          </TabPanel>
+          
+          <TabPanel>
+            <Box>
+              <Heading size="md" mb={4}>All Shops</Heading>
+              
+              {shops.length === 0 ? (
+                <Text color="gray.500">No shops found.</Text>
+              ) : (
+                <Table variant="simple">
+                  <Thead>
+                    <Tr>
+                      <Th>Shop Name</Th>
+                      <Th>Owner</Th>
+                      <Th>Location</Th>
+                      <Th>Status</Th>
+                      <Th>Created At</Th>
                     </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
-      </Stack>
-
-      {/* Verification Review Modal */}
+                  </Thead>
+                  <Tbody>
+                    {shops.map((shop) => (
+                      <Tr key={shop.id}>
+                        <Td>{shop.name}</Td>
+                        <Td>{shop.owner.toString().substring(0, 10)}...</Td>
+                        <Td>{shop.location.address}</Td>
+                        <Td>
+                          <Badge colorScheme={shop.is_verified ? 'green' : 'yellow'}>
+                            {shop.is_verified ? 'Verified' : 'Unverified'}
+                          </Badge>
+                        </Td>
+                        <Td>{new Date(Number(shop.created_at) / 1000000).toLocaleDateString()}</Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </Table>
+              )}
+            </Box>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
+      
+      {/* Verification Request Modal */}
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Review Verification Request</ModalHeader>
           <ModalCloseButton />
-          <ModalBody>
+          <ModalBody pb={6}>
             {selectedRequest && (
-              <Stack spacing={4}>
+              <VStack spacing={4} align="stretch">
                 <Box>
-                  <Text fontWeight="bold">Shop Name:</Text>
-                  <Text>
-                    {shops.find((s) => s.id === selectedRequest.shop_id)?.name}
-                  </Text>
+                  <Text fontWeight="bold">Shop ID:</Text>
+                  <Text>{selectedRequest.shop_id}</Text>
                 </Box>
+                
                 <Box>
-                  <Text fontWeight="bold">Submitted Documents:</Text>
-                  {selectedRequest.documents.map((doc, index) => (
-                    <Link
-                      key={index}
-                      href={doc}
-                      color="brand.500"
-                      display="block"
-                      isExternal
-                    >
-                      Document {index + 1}
-                    </Link>
-                  ))}
+                  <Text fontWeight="bold">Created At:</Text>
+                  <Text>{new Date(Number(selectedRequest.created_at) / 1000000).toLocaleString()}</Text>
                 </Box>
-                <Stack direction="row" spacing={4} mt={4}>
+                
+                <Box>
+                  <Text fontWeight="bold">Documents:</Text>
+                  {selectedRequest.documents.length > 0 ? (
+                    <Stack spacing={2} mt={2}>
+                      {selectedRequest.documents.map((doc, index) => (
+                        <Link key={index} href={doc} isExternal color="blue.500">
+                          Document {index + 1}
+                        </Link>
+                      ))}
+                    </Stack>
+                  ) : (
+                    <Text color="gray.500">No documents provided</Text>
+                  )}
+                </Box>
+                
+                <Divider />
+                
+                <HStack spacing={4} justify="center">
                   <Button
-                    leftIcon={<FiCheck />}
                     colorScheme="green"
-                    onClick={() =>
-                      handleVerification(
-                        selectedRequest.shop_id,
-                        'Approved'
-                      )
-                    }
+                    leftIcon={<FiCheck />}
+                    onClick={() => handleVerification(selectedRequest.shop_id, true)}
                   >
                     Approve
                   </Button>
                   <Button
-                    leftIcon={<FiX />}
                     colorScheme="red"
-                    onClick={() =>
-                      handleVerification(
-                        selectedRequest.shop_id,
-                        'Rejected'
-                      )
-                    }
+                    leftIcon={<FiX />}
+                    onClick={() => handleVerification(selectedRequest.shop_id, false)}
                   >
                     Reject
                   </Button>
-                </Stack>
-              </Stack>
+                </HStack>
+              </VStack>
             )}
           </ModalBody>
         </ModalContent>
       </Modal>
     </Container>
   );
-} 
+};
+
+export default AdminDashboard; 

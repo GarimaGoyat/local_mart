@@ -1,18 +1,18 @@
-import { extendTheme } from '@chakra-ui/react';
+import { extendTheme } from '@chakra-ui/theme-utils';
 
 const theme = extendTheme({
   colors: {
     brand: {
       50: '#E6F6FF',
-      100: '#B3E3FF',
-      200: '#80D0FF',
-      300: '#4DBDFF',
-      400: '#1AAAFF',
-      500: '#0088E6',
-      600: '#0066B3',
-      700: '#004480',
-      800: '#00224D',
-      900: '#00111A',
+      100: '#BAE3FF',
+      200: '#7CC4FA',
+      300: '#47A3F3',
+      400: '#2186EB',
+      500: '#0967D2',
+      600: '#0552B5',
+      700: '#03449E',
+      800: '#01337D',
+      900: '#002159',
     },
   },
   fonts: {

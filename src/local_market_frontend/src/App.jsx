@@ -1,29 +1,64 @@
 import React from 'react';
-import { ChakraProvider, Box, Container } from '@chakra-ui/react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { ChakraProvider, Box, Container, Flex, Button, Heading, Spacer, Text } from '@chakra-ui/react';
+import { FiHome, FiUser, FiShoppingBag, FiSettings } from 'react-icons/fi';
+import theme from './theme';
+
+// Import pages
 import Home from './pages/Home';
-import ShopList from './pages/ShopList';
-import ShopDetails from './pages/ShopDetails';
+import Register from './pages/Register';
 import SellerDashboard from './pages/SellerDashboard';
 import AdminDashboard from './pages/AdminDashboard';
-import theme from './theme';
 
 function App() {
   return (
     <ChakraProvider theme={theme}>
       <Router>
-        <Box minH="100vh">
-          <Navbar />
-          <Container maxW="container.xl" py={8}>
+        <Box minH="100vh" display="flex" flexDirection="column">
+          {/* Header */}
+          <Box as="header" bg="blue.500" color="white" py={4}>
+            <Container maxW="container.xl">
+              <Flex align="center">
+                <Link to="/">
+                  <Heading size="md">LocalMart</Heading>
+                </Link>
+                <Spacer />
+                <Flex gap={4}>
+                  <Button as={Link} to="/" variant="ghost" colorScheme="whiteAlpha" leftIcon={<FiHome />}>
+                    Home
+                  </Button>
+                  <Button as={Link} to="/register" variant="ghost" colorScheme="whiteAlpha" leftIcon={<FiUser />}>
+                    Register
+                  </Button>
+                  <Button as={Link} to="/seller/dashboard" variant="ghost" colorScheme="whiteAlpha" leftIcon={<FiShoppingBag />}>
+                    Seller Dashboard
+                  </Button>
+                  <Button as={Link} to="/admin/dashboard" variant="ghost" colorScheme="whiteAlpha" leftIcon={<FiSettings />}>
+                    Admin Dashboard
+                  </Button>
+                </Flex>
+              </Flex>
+            </Container>
+          </Box>
+
+          {/* Main Content */}
+          <Box as="main" flex="1">
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/shops" element={<ShopList />} />
-              <Route path="/shop/:id" element={<ShopDetails />} />
+              <Route path="/register" element={<Register />} />
               <Route path="/seller/dashboard" element={<SellerDashboard />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
             </Routes>
-          </Container>
+          </Box>
+
+          {/* Footer */}
+          <Box as="footer" bg="gray.100" py={6}>
+            <Container maxW="container.xl">
+              <Flex justify="center">
+                <Text color="gray.600">© 2023 LocalMart. All rights reserved.</Text>
+              </Flex>
+            </Container>
+          </Box>
         </Box>
       </Router>
     </ChakraProvider>

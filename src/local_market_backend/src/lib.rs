@@ -4,6 +4,7 @@ use ic_cdk_macros::*;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::cell::RefCell;
+use geo_types::{Coord, Point};
 
 // Data structures
 #[derive(Clone, Debug, CandidType, Serialize, Deserialize)]
@@ -102,7 +103,7 @@ fn init() {
     });
 }
 
-#[ic_cdk::query]
+#[query]
 fn greet(name: String) -> String {
     format!("Hello, {}!", name)
 }
@@ -148,25 +149,25 @@ fn create_shop(name: String, description: String, location: Location, contact: S
         } else {
             return Err("User not found".to_string());
         }
-    });
-    
-    let shop = Shop {
-        id: generate_id("shop"),
-        owner: caller,
-        name,
-        description,
-        location,
-        contact,
-        is_verified: false,
-        verification_expiry: None,
-        created_at: time(),
-    };
-    
-    SHOPS.with(|shops| {
-        shops.borrow_mut().insert(shop.id.clone(), shop.clone());
-    });
-    
-    Ok(shop)
+        
+        let shop = Shop {
+            id: generate_id("shop"),
+            owner: caller,
+            name,
+            description,
+            location,
+            contact,
+            is_verified: false,
+            verification_expiry: None,
+            created_at: time(),
+        };
+        
+        SHOPS.with(|shops| {
+            shops.borrow_mut().insert(shop.id.clone(), shop.clone());
+        });
+        
+        Ok(shop)
+    })
 }
 
 #[query]
@@ -176,13 +177,14 @@ fn get_shop(shop_id: String) -> Option<Shop> {
 
 #[query]
 fn get_shops_by_location(latitude: f64, longitude: f64, radius_km: f64) -> Vec<Shop> {
-    let center_hash = geohash::encode(latitude, longitude, 7).unwrap();
+    let coord = Coord { x: longitude, y: latitude };
+    let _center_hash = geohash::encode(coord, 7).unwrap_or_default();
     
     SHOPS.with(|shops| {
         shops.borrow()
             .values()
             .filter(|shop| {
-                let shop_hash = &shop.location.geohash;
+                let _shop_hash = &shop.location.geohash;
                 let distance = calculate_distance(
                     latitude,
                     longitude,
@@ -213,28 +215,28 @@ fn add_product(
             if shop.owner != caller {
                 return Err("Only shop owner can add products".to_string());
             }
+            
+            let product = Product {
+                id: generate_id("product"),
+                shop_id,
+                name,
+                description,
+                price,
+                category,
+                images,
+                available: true,
+                created_at: time(),
+            };
+            
+            PRODUCTS.with(|products| {
+                products.borrow_mut().insert(product.id.clone(), product.clone());
+            });
+            
+            Ok(product)
         } else {
-            return Err("Shop not found".to_string());
+            Err("Shop not found".to_string())
         }
-    });
-    
-    let product = Product {
-        id: generate_id("product"),
-        shop_id,
-        name,
-        description,
-        price,
-        category,
-        images,
-        available: true,
-        created_at: time(),
-    };
-    
-    PRODUCTS.with(|products| {
-        products.borrow_mut().insert(product.id.clone(), product.clone());
-    });
-    
-    Ok(product)
+    })
 }
 
 #[query]
@@ -264,23 +266,23 @@ fn request_verification(shop_id: String, documents: Vec<String>) -> Result<Verif
             if shop.owner != caller {
                 return Err("Only shop owner can request verification".to_string());
             }
+            
+            let request = VerificationRequest {
+                shop_id: shop_id.clone(),
+                documents,
+                status: VerificationStatus::Pending,
+                created_at: time(),
+            };
+            
+            VERIFICATION_REQUESTS.with(|requests| {
+                requests.borrow_mut().insert(shop_id, request.clone());
+            });
+            
+            Ok(request)
         } else {
-            return Err("Shop not found".to_string());
+            Err("Shop not found".to_string())
         }
-    });
-    
-    let request = VerificationRequest {
-        shop_id: shop_id.clone(),
-        documents,
-        status: VerificationStatus::Pending,
-        created_at: time(),
-    };
-    
-    VERIFICATION_REQUESTS.with(|requests| {
-        requests.borrow_mut().insert(shop_id, request.clone());
-    });
-    
-    Ok(request)
+    })
 }
 
 #[update]
@@ -292,26 +294,27 @@ fn process_verification(shop_id: String, status: VerificationStatus) -> Result<S
             if !matches!(user.user_type, UserType::Admin) {
                 return Err("Only admins can process verifications".to_string());
             }
+            
+            SHOPS.with(|shops| {
+                if let Some(mut shop) = shops.borrow_mut().get(&shop_id).cloned() {
+                    match status {
+                        VerificationStatus::Approved => {
+                            shop.is_verified = true;
+                            shop.verification_expiry = Some(time() + 30 * 24 * 60 * 60 * 1_000_000_000); // 30 days
+                        }
+                        _ => {
+                            shop.is_verified = false;
+                            shop.verification_expiry = None;
+                        }
+                    }
+                    shops.borrow_mut().insert(shop_id, shop.clone());
+                    Ok(shop)
+                } else {
+                    Err("Shop not found".to_string())
+                }
+            })
         } else {
-            return Err("User not found".to_string());
-        }
-    });
-    
-    SHOPS.with(|shops| {
-        if let Some(mut shop) = shops.borrow_mut().get(&shop_id).cloned() {
-            if matches!(status, VerificationStatus::Approved) {
-                shop.is_verified = true;
-                shop.verification_expiry = Some(time() + 30 * 24 * 60 * 60 * 1_000_000_000); // 30 days
-                shops.borrow_mut().insert(shop_id, shop.clone());
-                Ok(shop)
-            } else {
-                shop.is_verified = false;
-                shop.verification_expiry = None;
-                shops.borrow_mut().insert(shop_id, shop.clone());
-                Ok(shop)
-            }
-        } else {
-            Err("Shop not found".to_string())
+            Err("User not found".to_string())
         }
     })
 }

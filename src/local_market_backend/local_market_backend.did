@@ -1,9 +1,7 @@
 type User = record {
-    principal: principal;
-    name: text;
-    email: text;
-    user_type: UserType;
-    created_at: nat64;
+    id : principal;
+    name : text;
+    user_type : UserType;
 };
 
 type UserType = variant {
@@ -13,41 +11,34 @@ type UserType = variant {
 };
 
 type Shop = record {
-    id: text;
-    owner: principal;
-    name: text;
-    description: text;
-    location: Location;
-    contact: text;
-    is_verified: bool;
-    verification_expiry: opt nat64;
-    created_at: nat64;
+    id : text;
+    name : text;
+    owner : principal;
+    description : text;
+    location : Location;
+    verification_status : VerificationStatus;
 };
 
 type Location = record {
-    latitude: float64;
-    longitude: float64;
-    address: text;
-    geohash: text;
+    latitude : float64;
+    longitude : float64;
+    geohash : text;
 };
 
 type Product = record {
-    id: text;
-    shop_id: text;
-    name: text;
-    description: text;
-    price: float64;
-    category: text;
-    images: vec text;
-    available: bool;
-    created_at: nat64;
+    id : text;
+    name : text;
+    description : text;
+    price : float64;
+    shop_id : text;
+    image_url : text;
 };
 
 type VerificationRequest = record {
-    shop_id: text;
-    documents: vec text;
-    status: VerificationStatus;
-    created_at: nat64;
+    id : text;
+    shop_id : text;
+    status : VerificationStatus;
+    documents : vec text;
 };
 
 type VerificationStatus = variant {
@@ -56,36 +47,16 @@ type VerificationStatus = variant {
     Rejected;
 };
 
-type Result = variant {
-    Ok: User;
-    Err: text;
-};
-
-type Result_1 = variant {
-    Ok: Shop;
-    Err: text;
-};
-
-type Result_2 = variant {
-    Ok: Product;
-    Err: text;
-};
-
-type Result_3 = variant {
-    Ok: VerificationRequest;
-    Err: text;
-};
-
 service : {
-    "greet": (text) -> (text) query;
-    "register_user": (text, text, UserType) -> (Result);
-    "get_user": (principal) -> (opt User) query;
-    "create_shop": (text, text, Location, text) -> (Result_1);
-    "get_shop": (text) -> (opt Shop) query;
-    "get_shops_by_location": (float64, float64, float64) -> (vec Shop) query;
-    "add_product": (text, text, text, float64, text, vec text) -> (Result_2);
-    "get_product": (text) -> (opt Product) query;
-    "get_shop_products": (text) -> (vec Product) query;
-    "request_verification": (text, vec text) -> (Result_3);
-    "process_verification": (text, VerificationStatus) -> (Result_1);
+    greet : (text) -> (text);
+    register_user : (text, UserType) -> (User);
+    get_user : (principal) -> (opt User);
+    create_shop : (text, text, Location) -> (Shop);
+    get_shop : (text) -> (opt Shop);
+    get_shops_by_location : (Location, float64) -> (vec Shop);
+    add_product : (text, text, float64, text, text) -> (Product);
+    get_product : (text) -> (opt Product);
+    get_shop_products : (text) -> (vec Product);
+    request_verification : (text, vec text) -> (VerificationRequest);
+    process_verification : (text, VerificationStatus) -> (VerificationRequest);
 }
