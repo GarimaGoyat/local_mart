@@ -1,233 +1,215 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
-  Container,
-  Heading,
-  Text,
   Button,
-  VStack,
   FormControl,
   FormLabel,
   Input,
+  VStack,
+  Heading,
+  Select,
   useToast,
-  Radio,
-  RadioGroup,
-  Stack,
-  Divider,
+  Text,
   Spinner,
 } from '@chakra-ui/react';
-import { useNavigate } from 'react-router-dom';
-import { local_market_backend } from '../../../declarations/local_market_backend';
+import { useAuth } from '../StateManagement/useContext/useClient.jsx';
 import { AuthClient } from '@dfinity/auth-client';
 
 const Register = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    userType: 'Buyer',
-  });
-  const [loading, setLoading] = useState(true);
+  const [name, setName] = useState('');
+  const [userType, setUserType] = useState('Admin');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const toast = useToast();
+  const [principal, setPrincipal] = useState(null);
+  const { backendActor, login } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   useEffect(() => {
-    checkAuth();
+    checkAuthStatus();
   }, []);
 
-  const checkAuth = async () => {
+  const checkAuthStatus = async () => {
     try {
       const authClient = await AuthClient.create();
-      const authenticated = await authClient.isAuthenticated();
+      const isAuthed = await authClient.isAuthenticated();
+      setIsAuthenticated(isAuthed);
       
-      if (!authenticated) {
-        // Redirect to Internet Identity
-        await authClient.login({
-          identityProvider: process.env.II_URL || "http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943",
-          onSuccess: () => {
-            setIsAuthenticated(true);
-            setLoading(false);
-          },
-        });
-      } else {
-        setIsAuthenticated(true);
-        setLoading(false);
+      if (isAuthed) {
+        const identity = await authClient.getIdentity();
+        setPrincipal(identity.getPrincipal());
       }
     } catch (error) {
-      console.error('Error checking authentication:', error);
-      toast({
-        title: 'Authentication Error',
-        description: 'Failed to check authentication status',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      setLoading(false);
+      console.error('Error checking auth status:', error);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-  };
-
-  const handleUserTypeChange = (value) => {
-    setFormData({
-      ...formData,
-      userType: value,
-    });
+  const handleAuthenticate = async () => {
+    try {
+      setIsAuthenticating(true);
+      await login();
+      await checkAuthStatus();
+      toast({
+        title: 'Authentication successful',
+        status: 'success',
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error('Authentication error:', error);
+      toast({
+        title: 'Authentication failed',
+        description: error.message,
+        status: 'error',
+        duration: 3000,
+      });
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    
+    if (!isAuthenticated) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please authenticate with Internet Identity first',
+        status: 'warning',
+        duration: 3000,
+      });
+      return;
+    }
 
+    if (!name.trim()) {
+      toast({
+        title: 'Name required',
+        description: 'Please enter your name',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+    
     try {
-      const authClient = await AuthClient.create();
-      const identity = await authClient.getIdentity();
-      const principal = identity.getPrincipal();
+      console.log('Starting registration process...');
+      console.log('Name:', name);
+      console.log('User Type:', userType);
+      console.log('Principal:', principal?.toString());
       
-      // Convert the user type string to the proper enum format
-      const userType = {
-        [formData.userType]: null
-      };
+      // Convert string to enum object format
+      const userTypeEnum = userType === 'Admin' 
+        ? { Admin: null } 
+        : { Seller: null };
       
-      const result = await local_market_backend.register_user(
-        formData.name,
-        formData.email,
-        userType
-      );
+      console.log('User Type Enum:', userTypeEnum);
       
-      if ('Ok' in result) {
-        toast({
-          title: 'Registration Successful',
-          description: 'Your account has been created successfully',
-          status: 'success',
-          duration: 5000,
-          isClosable: true,
-        });
-        
-        if (formData.userType === 'Seller') {
-          navigate('/seller/dashboard');
-        } else if (formData.userType === 'Admin') {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/');
-        }
+      const result = await backendActor.register_user(name.trim(), userTypeEnum);
+      console.log('Registration result:', result);
+      
+      const [message, registeredUserType] = result;
+      console.log('Message:', message);
+      console.log('Registered User Type:', registeredUserType);
+      
+      toast({
+        title: 'Registration successful',
+        description: message,
+        status: 'success',
+        duration: 3000,
+      });
+
+      // Redirect based on user type
+      if (registeredUserType && registeredUserType.Admin !== undefined) {
+        console.log('Redirecting to admin dashboard...');
+        navigate('/admin/dashboard');
+      } else if (registeredUserType && registeredUserType.Seller !== undefined) {
+        console.log('Redirecting to seller dashboard...');
+        navigate('/seller/dashboard');
       } else {
-        toast({
-          title: 'Registration Failed',
-          description: result.Err || 'Failed to register user',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
+        console.log('Redirecting to login...');
+        navigate('/login');
       }
     } catch (error) {
-      console.error('Error registering user:', error);
+      console.error('Registration error:', error);
+      console.error('Error details:', {
+        name: name,
+        userType: userType,
+        principal: principal?.toString(),
+        error: error.toString()
+      });
+      
       toast({
-        title: 'Error',
-        description: 'Failed to register user. Please try again.',
+        title: 'Registration failed',
+        description: error.message || 'An error occurred during registration. Please try again.',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <Container maxW="container.md" py={10}>
-        <VStack spacing={8} align="center">
-          <Spinner size="xl" />
-          <Text>Checking authentication status...</Text>
-        </VStack>
-      </Container>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <Container maxW="container.md" py={10}>
-        <VStack spacing={8} align="center">
-          <Text>Redirecting to authentication...</Text>
-        </VStack>
-      </Container>
-    );
-  }
-
   return (
-    <Container maxW="container.md" py={10}>
-      <VStack spacing={8} align="stretch">
-        <Box textAlign="center">
-          <Heading size="lg">Create Your Account</Heading>
-          <Text color="gray.600" mt={2}>
-            Join LocalMart and connect with local shops and sellers
-          </Text>
-        </Box>
+    <Box maxW="md" mx="auto" mt={8} p={6} borderWidth={1} borderRadius={8} boxShadow="lg">
+      <VStack spacing={4}>
+        <Heading>Register</Heading>
         
-        <Box as="form" onSubmit={handleSubmit} p={6} borderWidth="1px" borderRadius="lg">
-          <VStack spacing={6}>
-            <FormControl isRequired>
-              <FormLabel>Full Name</FormLabel>
-              <Input
-                name="name"
-                placeholder="Enter your full name"
-                value={formData.name}
-                onChange={handleChange}
-              />
-            </FormControl>
-            
-            <FormControl isRequired>
-              <FormLabel>Email</FormLabel>
-              <Input
-                name="email"
-                type="email"
-                placeholder="Enter your email"
-                value={formData.email}
-                onChange={handleChange}
-              />
-            </FormControl>
-            
-            <FormControl isRequired>
-              <FormLabel>Account Type</FormLabel>
-              <RadioGroup value={formData.userType} onChange={handleUserTypeChange}>
-                <Stack direction="row" spacing={5}>
-                  <Radio value="Buyer">Buyer</Radio>
-                  <Radio value="Seller">Seller</Radio>
-                  <Radio value="Admin">Admin</Radio>
-                </Stack>
-              </RadioGroup>
-            </FormControl>
-            
-            <Divider />
-            
-            <Button
-              type="submit"
-              colorScheme="blue"
+        {!isAuthenticated ? (
+          <VStack spacing={4} width="100%">
+            <Text textAlign="center">
+              You need to authenticate with Internet Identity before registering.
+            </Text>
+            <Button 
+              onClick={handleAuthenticate} 
+              colorScheme="blue" 
               width="100%"
-              isLoading={loading}
+              isLoading={isAuthenticating}
+              loadingText="Authenticating..."
             >
-              Register
+              Authenticate with Internet Identity
             </Button>
           </VStack>
-        </Box>
-        
-        <Box textAlign="center">
-          <Text>
-            Already have an account?{' '}
-            <Button variant="link" colorScheme="blue" onClick={() => navigate('/login')}>
-              Login here
-            </Button>
-          </Text>
-        </Box>
+        ) : (
+          <>
+            <Box 
+              p={4} 
+              bg="green.50" 
+              borderRadius="md" 
+              width="100%" 
+              textAlign="center"
+            >
+              <Text color="green.500" fontWeight="bold">
+                ✓ Authenticated Successfully
+              </Text>
+              <Text fontSize="sm" color="gray.600" mt={1}>
+                Principal ID: {principal?.toString()}
+              </Text>
+            </Box>
+            <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+              <VStack spacing={4}>
+                <FormControl isRequired>
+                  <FormLabel>Name</FormLabel>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your name"
+                  />
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>User Type</FormLabel>
+                  <Select value={userType} onChange={(e) => setUserType(e.target.value)}>
+                    <option value="Admin">Admin</option>
+                    <option value="Seller">Seller</option>
+                  </Select>
+                </FormControl>
+                <Button type="submit" colorScheme="blue" width="100%">
+                  Register
+                </Button>
+              </VStack>
+            </form>
+          </>
+        )}
       </VStack>
-    </Container>
+    </Box>
   );
 };
 

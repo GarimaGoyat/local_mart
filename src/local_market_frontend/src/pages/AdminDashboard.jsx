@@ -34,6 +34,7 @@ import {
 } from '@chakra-ui/react';
 import { FiCheck, FiX } from 'react-icons/fi';
 import { local_market_backend } from '../../../declarations/local_market_backend';
+import { useAuth } from '../StateManagement/useContext/useClient';
 
 const AdminDashboard = () => {
   const [shops, setShops] = useState([]);
@@ -42,10 +43,14 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
+  const { backendActor, user } = useAuth();
 
   useEffect(() => {
+    if (user?.user_type?.Admin === undefined) {
+      return;
+    }
     fetchAdminData();
-  }, []);
+  }, [user]);
 
   const fetchAdminData = async () => {
     try {
@@ -81,45 +86,21 @@ const AdminDashboard = () => {
 
   const handleVerification = async (shopId, approved) => {
     try {
-      const status = approved ? { Approved: null } : { Rejected: null };
-      
-      const result = await local_market_backend.process_verification(shopId, status);
-      
-      if (result.Ok) {
-        // Update the shops list
-        setShops(shops.map(shop => 
-          shop.id === shopId ? result.Ok : shop
-        ));
-        
-        // Remove the request from verification requests
-        setVerificationRequests(verificationRequests.filter(req => req.shop_id !== shopId));
-        
-        onClose();
-        
-        toast({
-          title: 'Verification Processed',
-          description: `Shop has been ${approved ? 'approved' : 'rejected'}`,
-          status: 'success',
-          duration: 5000,
-          isClosable: true,
-        });
-      } else {
-        toast({
-          title: 'Error',
-          description: result.Err || 'Failed to process verification',
-          status: 'error',
-          duration: 5000,
-          isClosable: true,
-        });
-      }
+      await backendActor.process_verification(shopId, approved);
+      toast({
+        title: 'Success',
+        description: `Shop verification ${approved ? 'approved' : 'rejected'}`,
+        status: 'success',
+        duration: 3000,
+      });
+      fetchAdminData();
     } catch (error) {
       console.error('Error processing verification:', error);
       toast({
         title: 'Error',
-        description: 'Failed to process verification',
+        description: 'Failed to process verification request',
         status: 'error',
-        duration: 5000,
-        isClosable: true,
+        duration: 3000,
       });
     }
   };
@@ -128,6 +109,10 @@ const AdminDashboard = () => {
     setSelectedRequest(request);
     onOpen();
   };
+
+  if (user?.user_type?.Admin === undefined) {
+    return <Box p={4}>Access denied. Admin only.</Box>;
+  }
 
   if (loading) {
     return (
@@ -159,31 +144,26 @@ const AdminDashboard = () => {
                   <Thead>
                     <Tr>
                       <Th>Shop ID</Th>
-                      <Th>Created At</Th>
+                      <Th>Owner</Th>
+                      <Th>Documents</Th>
                       <Th>Status</Th>
                       <Th>Actions</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {verificationRequests.map((request) => {
-                      const shop = shops.find(s => s.id === request.shop_id);
-                      return (
-                        <Tr key={request.shop_id}>
-                          <Td>
-                            <Link color="blue.500" onClick={() => openVerificationModal(request)}>
-                              {shop ? shop.name : request.shop_id}
-                            </Link>
-                          </Td>
-                          <Td>{new Date(Number(request.created_at) / 1000000).toLocaleDateString()}</Td>
-                          <Td>
-                            <Badge colorScheme="yellow">Pending</Badge>
-                          </Td>
-                          <Td>
-                            <HStack spacing={2}>
+                    {verificationRequests.map((request) => (
+                      <Tr key={request.shop_id}>
+                        <Td>{request.shop_id}</Td>
+                        <Td>{request.owner.toString()}</Td>
+                        <Td>{request.documents.join(', ')}</Td>
+                        <Td>{request.status}</Td>
+                        <Td>
+                          {request.status === 'Pending' && (
+                            <>
                               <Button
                                 size="sm"
                                 colorScheme="green"
-                                leftIcon={<FiCheck />}
+                                mr={2}
                                 onClick={() => handleVerification(request.shop_id, true)}
                               >
                                 Approve
@@ -191,16 +171,15 @@ const AdminDashboard = () => {
                               <Button
                                 size="sm"
                                 colorScheme="red"
-                                leftIcon={<FiX />}
                                 onClick={() => handleVerification(request.shop_id, false)}
                               >
                                 Reject
                               </Button>
-                            </HStack>
-                          </Td>
-                        </Tr>
-                      );
-                    })}
+                            </>
+                          )}
+                        </Td>
+                      </Tr>
+                    ))}
                   </Tbody>
                 </Table>
               )}

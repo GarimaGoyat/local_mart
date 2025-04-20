@@ -10,7 +10,6 @@ use std::cell::RefCell;
 pub struct User {
     pub principal: Principal,
     pub name: String,
-    pub email: String,
     pub user_type: UserType,
     pub created_at: u64,
 }
@@ -92,7 +91,6 @@ fn init() {
     let admin = User {
         principal: caller,
         name: String::from("Admin"),
-        email: String::from("admin@localmarket.ic"),
         user_type: UserType::Admin,
         created_at: time(),
     };
@@ -109,7 +107,7 @@ fn greet(name: String) -> String {
 
 // User Management
 #[update]
-fn register_user(name: String, email: String, user_type: UserType) -> Result<String, String> {
+fn register_user(name: String, user_type: UserType) -> Result<(String, UserType), String> {
     let caller = ic_cdk::caller();
     
     USERS.with(|users| {
@@ -118,16 +116,19 @@ fn register_user(name: String, email: String, user_type: UserType) -> Result<Str
             return Err("User already registered".to_string());
         }
         
+        if name.is_empty() {
+            return Err("Name cannot be empty".to_string());
+        }
+
         let user = User {
             principal: caller,
-            name,
-            email,
-            user_type,
+            name: name.clone(),
+            user_type: user_type.clone(),
             created_at: time(),
         };
         
         users.insert(caller, user);
-        Ok("User registered successfully".to_string())
+        Ok(("User registered successfully".to_string(), user_type))
     })
 }
 
