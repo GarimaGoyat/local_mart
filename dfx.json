@@ -15,7 +15,12 @@
       "candid": "src/local_market_backend/local_market_backend.did",
       "package": "local_market_backend",
       "type": "rust",
-      "build": "cargo build --target wasm32-unknown-unknown --release -p local_market_backend"
+      "build": "cargo build --target wasm32-unknown-unknown --release -p local_market_backend",
+      "remote": {
+        "id": {
+          "ic": "f3j42-aaaaa-aaaah-ardxa-cai"
+        }
+      }
     },
     "local_market_frontend": {
       "dependencies": [
@@ -25,7 +30,12 @@
         "src/local_market_frontend/dist"
       ],
       "type": "assets",
-      "workspace": "local_market_frontend"
+      "workspace": "local_market_frontend",
+      "remote": {
+        "id": {
+          "ic": "f4i2o-nyaaa-aaaah-ardxq-cai"
+        }
+      }
     }
   },
   "defaults": {
